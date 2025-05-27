@@ -3,6 +3,8 @@ import * as Sentry from "@sentry/nextjs"
 import { prisma } from "@/db/prisma"
 import { revalidatePath } from "next/cache";
 import { logEvent } from "@/utils/sentry";
+import { getCurrentUser } from "@/lib/current-user";
+import { ResponseResult } from "./auth.actions";
 
 export async function createTicket(previousState: { success: Boolean, message: String }, formData: FormData): Promise<{ success: Boolean, message: String }> {
     try {
@@ -20,8 +22,25 @@ export async function createTicket(previousState: { success: Boolean, message: S
             return { success: false, message: "All fields are required" };
 
         }
+        const user = await getCurrentUser();
+        if (!user) {
+            logEvent(
+                `Unauthorized ticket creation attempt`,
+                'ticket',
+                {},
+                "warning"
+            )
+            return { success: false, message: "You must be logged in to create a ticket" };
 
-        const ticket = await prisma.ticket.create({ data: { subject, description, priority } })
+        }
+
+        const ticket = await prisma.ticket.create({
+            data: {
+                subject, description, priority, user: {
+                    connect: { id: user.id }
+                }
+            }
+        })
 
         logEvent(
             `Ticket created successfully: ${ticket.id}`,
@@ -38,7 +57,7 @@ export async function createTicket(previousState: { success: Boolean, message: S
         }
             ,
             'error', error)
-        return { success: false, message: "An error occured while creating error" };
+        return { success: false, message: "An error occured while creating ticket" };
 
     }
 
@@ -46,8 +65,17 @@ export async function createTicket(previousState: { success: Boolean, message: S
 
 export async function getTickets() {
     try {
+        const user = await getCurrentUser();
+        if (!user) {
+            logEvent(
+                'Unauthorized access to ticket list', 'ticket', {}, 'info')
+            return [];
+        }
 
         const tickets = await prisma.ticket.findMany({
+            where: {
+                userId: user.id
+            },
             orderBy
                 : { createdAt: 'desc' }
         });
@@ -82,4 +110,47 @@ export async function getTicketById(id: string) {
         return null;
     }
 
+}
+
+export async function closeTicket(previousState: ResponseResult, formData: FormData): Promise<ResponseResult> {
+    try {
+        const ticketId = formData.get("tickedId") as string;
+        const user = await getCurrentUser();
+        if (!user) {
+            logEvent("Unauthorized access", 'ticket', {}, 'warning');
+            return { success: false, message: "Unauthorized access" };
+        }
+        if (!ticketId) {
+            logEvent("Ticket Id is missing", 'ticket', { ticketId }, 'warning');
+            return { success: false, message: "Ticked Id is required" };
+        }
+
+        const ticket = await prisma.ticket.findUnique({
+            where: {
+                id: Number(ticketId),
+
+            }
+        })
+        if (!ticket || ticket.userId !== user.id) {
+            logEvent("Unauthorized ticket close attempt", 'ticket', { ticketId }, 'warning');
+            return { success: false, message: "You are authorized to close this ticket" };
+        }
+
+        await prisma.ticket.update({
+            where: {
+                id: Number(ticketId)
+            },
+            data: {
+                status: "Closed"
+            }
+        })
+        revalidatePath("/tickets");
+        revalidatePath(`/ticket/${ticketId}`);
+
+        return { success: true, message: "Ticket closed successfully" }
+
+    } catch (error) {
+        logEvent("An error occured while closing this ticket", 'ticket', {}, 'error', error);
+        return { success: false, message: "An error occured" };
+    }
 }
