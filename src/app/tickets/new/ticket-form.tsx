@@ -1,9 +1,13 @@
 'use client';
 
-import { useActionState, useEffect } from 'react';
+import { useActionState, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import { createTicket } from '@/actions/ticket.actions';
+import { SubmitButton } from '@/components/submitButton';
+
+
+
 
 const NewTicketForm = () => {
     const [state, formAction] = useActionState(createTicket, {
@@ -34,12 +38,14 @@ const NewTicketForm = () => {
                     type='text'
                     name='subject'
                     placeholder='Subject'
+                    required
                 />
                 <textarea
                     className='w-full border border-gray-200 p-3 rounded focus:outline-none focus:ring-2 focus:ring-blue-400'
                     name='description'
                     placeholder='Describe your issue'
                     rows={4}
+                    required
                 />
                 <select
                     className='w-full border border-gray-200 p-3 rounded focus:outline-none focus:ring-2 focus:ring-blue-400 text-gray-700'
@@ -50,12 +56,7 @@ const NewTicketForm = () => {
                     <option value='Medium'>Medium Priority</option>
                     <option value='High'>High Priority</option>
                 </select>
-                <button
-                    className='w-full bg-blue-600 text-white p-3 rounded hover:bg-blue-700 transition disabled:opacity-50'
-                    type='submit'
-                >
-                    Submit
-                </button>
+                <SubmitButton text="Submit" activeText="Submitting..." />
             </form>
         </div>
     );

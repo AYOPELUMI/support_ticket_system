@@ -4,6 +4,7 @@ import { useActionState, useEffect } from 'react';
 import { toast } from 'sonner';
 import { useRouter } from 'next/navigation';
 import { loginUser } from '@/actions/auth.actions';
+import { SubmitButton } from '@/components/submitButton';
 
 const LoginForm = () => {
     const router = useRouter();
@@ -48,12 +49,7 @@ const LoginForm = () => {
                         autoComplete='new-password'
                         required
                     />
-                    <button
-                        className='w-full bg-blue-600 text-white p-3 rounded hover:bg-blue-700 transition disabled:opacity-50'
-                        type='submit'
-                    >
-                        Login
-                    </button>
+                    <SubmitButton text='Login' activeText='Logging in....' />
                 </form>
             </div>
         </div>
